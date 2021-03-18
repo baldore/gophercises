@@ -1,16 +1,3 @@
-package main
-
-import (
-	"encoding/csv"
-	"errors"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"os"
-	"time"
-)
-
 // Steps
 // ==== 1. Read the CSV. It could be set via a flag, with default to problems.csv
 // ==== 2. Show the number of right answers
@@ -18,23 +5,35 @@ import (
 //    press Enter before the timer starts.
 //
 // Bonus
-// 1. Add string trimming and cleanup to help ensure that correct
+// ==== 1. Add string trimming and cleanup to help ensure that correct
 //    answers with extra whitespace, capitalization, etc are not considered
 //    incorrect.
 //    Hint: Check out the strings package.
 // 2. Add an option (a new flag) to shuffle the quiz order each time it is
 //    run.
+package main
+
+import (
+	"encoding/csv"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"time"
+
+	"./quiz"
+)
+
 func main() {
 	var (
-		// flags
 		csvFile   string
 		timeLimit int
-
-		score int
+		random    bool
 	)
 
 	flag.StringVar(&csvFile, "csv", "problems.csv", "CSV file to read from")
 	flag.IntVar(&timeLimit, "t", 30, "Time limit to finish the test")
+	flag.BoolVar(&random, "r", false, "Randomize the questions order")
 	flag.Parse()
 
 	f, err := os.Open(csvFile)
@@ -43,6 +42,14 @@ func main() {
 	}
 	defer f.Close()
 
+	records, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		panic(err)
+	}
+
+	qs := recordsToQuestions(records)
+	qz := quiz.New(qs)
+
 	fmt.Print("Press Enter to start the quiz. A timer will start after.")
 	fmt.Scanln()
 
@@ -50,7 +57,7 @@ func main() {
 	doneCh := make(chan bool)
 
 	go func() {
-		score = askQuestions(f)
+		qz.Start()
 		doneCh <- true
 	}()
 
@@ -60,37 +67,17 @@ func main() {
 		fmt.Println("\nTime's up!")
 	}
 
-	fmt.Printf("Your final score: %d", score)
+	fmt.Printf("Your final score: %d", qz.Score)
 }
 
-func askQuestions(f io.Reader) int {
-	var score int
-
-	csvReader := csv.NewReader(f)
-
-	for {
-		record, err := csvReader.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			log.Println(err)
-
-			break
-		}
-
-		question := record[0]
-		answer := record[1]
-
-		var userInput string
-		fmt.Printf("%s: ", question)
-		fmt.Scanln(&userInput)
-
-		if userInput == answer {
-			score++
-		}
+func recordsToQuestions(r [][]string) quiz.Questions {
+	qs := quiz.Questions{}
+	for _, record := range r {
+		qs = append(qs, quiz.Question{
+			Question: record[0],
+			Answer:   record[1],
+		})
 	}
 
-	return score
+	return qs
 }
