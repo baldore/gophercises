@@ -50,6 +50,10 @@ func main() {
 	qs := recordsToQuestions(records)
 	qz := quiz.New(qs)
 
+	if random {
+		qz.Shuffle()
+	}
+
 	fmt.Print("Press Enter to start the quiz. A timer will start after.")
 	fmt.Scanln()
 

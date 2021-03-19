@@ -2,7 +2,9 @@ package quiz
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 )
 
 type Question struct {
@@ -24,6 +26,7 @@ func New(q Questions) Quiz {
 	}
 }
 
+// Starts the quiz from the first question.
 func (qz *Quiz) Start() {
 	var userInput string
 
@@ -36,4 +39,14 @@ func (qz *Quiz) Start() {
 			qz.Score++
 		}
 	}
+}
+
+// Shuffles the questions.
+func (qz *Quiz) Shuffle() {
+	qs := qz.Questions
+
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(qs), func(i, j int) {
+		qs[i], qs[j] = qs[j], qs[i]
+	})
 }
