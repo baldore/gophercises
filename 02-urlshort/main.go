@@ -1,32 +1,40 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/baldore/urlshort/urlshort"
 )
 
 func main() {
-	var filepath string
+	var (
+		ymlFilepath  string
+		jsonFilepath string
+	)
 
-	flag.StringVar(&filepath, "yml", "", "Yaml string to parse.")
+	flag.StringVar(&ymlFilepath, "y", "", "Yaml file to parse.")
+	flag.StringVar(&jsonFilepath, "j", "", "Json file to parse.")
 	flag.Parse()
 
 	mux := defaultMux()
 
-	// Build the MapHandler using the mux as the fallback
-	pathsToUrls := map[string]string{
-		"/urlshort-godoc": "https://godoc.org/github.com/gophercises/urlshort",
-		"/yaml-godoc":     "https://godoc.org/gopkg.in/yaml.v2",
+	pathsToUrls, err := getOptionsFromJSONFile(jsonFilepath)
+	if err != nil {
+		errorString := fmt.Sprintf("Error: json file %q not found.", ymlFilepath)
+		panic(errorString)
 	}
+
 	mapHandler := urlshort.MapHandler(pathsToUrls, mux)
 
-	yaml, err := getOptionsFromYAMLFile(filepath)
+	yaml, err := getOptionsFromYAMLFile(ymlFilepath)
 	if err != nil {
-		errorString := fmt.Sprintf("Error: file %q not found", filepath)
+		errorString := fmt.Sprintf("Error: yml file %q not found.", ymlFilepath)
 		panic(errorString)
 	}
 
@@ -39,7 +47,32 @@ func main() {
 	http.ListenAndServe(":8080", yamlHandler)
 }
 
+func getOptionsFromJSONFile(filepath string) (map[string]string, error) {
+	if filepath == "" {
+		return map[string]string{}, nil
+	}
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	urlsMap := map[string]string{}
+	fileReader := bufio.NewReader(file)
+	decoder := json.NewDecoder(fileReader)
+
+	if err := decoder.Decode(&urlsMap); err != nil {
+		return nil, err
+	}
+
+	return urlsMap, nil
+}
+
 func getOptionsFromYAMLFile(filepath string) ([]byte, error) {
+	if filepath == "" {
+		return []byte{}, nil
+	}
+
 	file, err := ioutil.ReadFile(filepath)
 
 	return file, err
