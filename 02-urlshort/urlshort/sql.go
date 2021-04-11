@@ -18,24 +18,31 @@ func SQLHandler(fallback http.Handler) http.HandlerFunc {
 		panic(err)
 	}
 
-	rows, err := db.Query("select url from urls")
+	rows, err := db.Query("select url_path, url from urls")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s\n", rows)
 
-	// _, err := db.QueryContext(ctx, "SELECT url, path FROM urls")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Fprintf("#v\n", rows)
-	// return func(w http.ResponseWriter, r *http.Request) {
-	// 	if url, ok := pathsToUrls[r.URL.Path]; ok {
-	// 		http.Redirect(w, r, url, http.StatusMovedPermanently)
-	// 	} else {
-	// 		fallback.ServeHTTP(w, r)
-	// 	}
-	// }
+	got := map[string]string{}
 
-	return fallback.ServeHTTP
+	for rows.Next() {
+		var urlPath, path string
+		err = rows.Scan(&urlPath, &path)
+
+		if err != nil {
+			panic(err)
+		}
+
+		got[urlPath] = path
+	}
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if url, ok := got[r.URL.Path]; ok {
+			http.Redirect(w, r, url, http.StatusMovedPermanently)
+		} else {
+			fallback.ServeHTTP(w, r)
+		}
+	}
+
+	return handler
 }
